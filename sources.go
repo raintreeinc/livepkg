@@ -6,21 +6,24 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 )
 
 type Sources struct {
-	// Dir is the root directory for the sources
-	Dir string
+	// Root is the root directory for the sources it is used to
+	// resolve dependencies
+	Root string
+	// Only include these sub-directories from Root
+	// if this is empty it includes all directories
+	Include []string
 
 	init   sync.Once
 	loaded atomic.Value
 }
 
 func NewSources(dir string) *Sources {
-	return &Sources{Dir: dir}
+	return &Sources{Root: dir}
 }
 
 // returns the cached state of files
@@ -36,7 +39,7 @@ func (s *Sources) Files() (files []*File, err error) {
 
 // reloads the files from disk
 func (s *Sources) Reload() error {
-	files, err := LoadFiles(s.Dir)
+	files, err := LoadFiles(s.Root, s.Include)
 	sorted, err2 := sortFiles(files)
 	s.loaded.Store(sorted)
 
@@ -65,14 +68,10 @@ func (s *Sources) Changes(prevstate []*File) ([]*File, []*Change, error) {
 	}
 
 	changes := []*Change{}
-	err := filepath.Walk(s.Dir, func(filename string, info os.FileInfo, err error) error {
-		if err != nil || !supportedExt[filepath.Ext(filename)] {
-			return err
-		}
-
+	err := walkfiles(s.Root, s.Include, func(filename string, info os.FileInfo) error {
 		track, ok := loaded[filename]
 		if !ok {
-			file, err := LoadFile(s.Dir, filename)
+			file, err := LoadFile(s.Root, filename)
 			if err != nil {
 				return err
 			}
@@ -198,7 +197,7 @@ func (s *Sources) BundleByExt(ext string) ([]byte, error) {
 
 func (s *Sources) ServeFile(w http.ResponseWriter, r *http.Request) {
 	if !supportedExt[path.Ext(r.URL.Path)] {
-		filename := urlfile(s.Dir, r.URL.Path)
+		filename := urlfile(s.Root, r.URL.Path)
 		http.ServeFile(w, r, filename)
 		return
 	}

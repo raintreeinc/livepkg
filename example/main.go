@@ -23,18 +23,18 @@ func main() {
 	}
 
 	pkg := livepkg.NewServer(".", *dev)
+	pkg.SetRoots("/ui/")
+
 	http.Handle("/ui/", pkg)
+
 	http.HandleFunc("/", index)
 
 	log.Println("starting listening on ", *addr)
 	http.ListenAndServe(*addr, nil)
 }
 
-var (
-	T = template.Must(template.New("").ParseFiles("index.html"))
-)
-
 func index(w http.ResponseWriter, r *http.Request) {
+	T := template.Must(template.New("").ParseFiles("index.html"))
 	err := T.ExecuteTemplate(w, "index.html", nil)
 	if err != nil {
 		log.Println(err)

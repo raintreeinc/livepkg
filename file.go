@@ -30,15 +30,36 @@ type File struct {
 	Content []byte `json:"-"`
 }
 
-func LoadFiles(dir string) ([]*File, error) {
-	files := []*File{}
+type walkfn func(filename string, info os.FileInfo) error
 
-	err := filepath.Walk(dir, func(filename string, info os.FileInfo, err error) error {
-		if err != nil || !supportedExt[filepath.Ext(filename)] {
+func walkfiles(root string, includedirs []string, fn walkfn) error {
+	return filepath.Walk(root, func(filename string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
 			return err
 		}
+		if !supportedExt[filepath.Ext(filename)] {
+			return nil
+		}
 
-		file, err := LoadFile(dir, filename)
+		if len(includedirs) == 0 {
+			return fn(filename, info)
+		}
+
+		file := "/" + filepath.ToSlash(filename)
+		for _, prefix := range includedirs {
+			if strings.HasPrefix(file, prefix) {
+				return fn(filename, info)
+			}
+		}
+		return nil
+	})
+}
+
+func LoadFiles(root string, includes []string) ([]*File, error) {
+	files := []*File{}
+
+	err := walkfiles(root, includes, func(filename string, info os.FileInfo) error {
+		file, err := LoadFile(root, filename)
 		if err != nil {
 			return err
 		}

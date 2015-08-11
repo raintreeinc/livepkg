@@ -12,8 +12,7 @@ import (
 )
 
 type Server struct {
-	Dir   string   // directory where to serve files
-	Roots []string // root paths that the server serves
+	Dir string // directory where to serve files
 
 	dev     bool
 	sources *Sources
@@ -22,14 +21,17 @@ type Server struct {
 
 func NewServer(rootdir string, dev bool) *Server {
 	server := &Server{
-		Dir:   rootdir,
-		Roots: []string{},
+		Dir: rootdir,
 
 		dev:     dev,
 		sources: NewSources(rootdir),
 	}
 	server.socket = websocket.Handler(server.livechanges)
 	return server
+}
+
+func (server *Server) SetRoots(dirs ...string) {
+	server.sources.Include = dirs
 }
 
 func (server *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
