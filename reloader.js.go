@@ -43,7 +43,7 @@ var Reloader = {};
 				unloaded.shift();
 			}
 			if(Object.keys(loading).length == 0){
-				console.log("reloader", "All files loaded.");
+				console.log("reloader", "+++");
 			}
 		}
 
@@ -52,7 +52,7 @@ var Reloader = {};
 			for(var i = 0; i < file.deps.length; i += 1){
 				if(loading[file.deps[i]]){ return false; }
 			}
-			console.log("reloader", "Loading: " + file.path);
+			console.log("reloader", "+ " + file.path);
 			loading[file.path] = true;
 			var asset = injectFile(file);
 			asset.onload = function(){
@@ -131,7 +131,7 @@ var Reloader = {};
 				var asset = injectFile(change.next);
 				asset.onload = onFileChanged(change);
 			} else if(change.next == null){
-				remove(change.prev);
+				removeFile(change.prev);
 			} else {
 				var asset = swapFile(change.prev, change.next);
 				asset.onload = onFileChanged(change);
@@ -139,7 +139,7 @@ var Reloader = {};
 		});
 
 		ws.addEventListener('open', function(){
-			console.log("livebundle connected");
+			console.log("livepkg connected");
 			if(OnceConnected){
 				// server changed, force reload
 				window.location.reload();
@@ -148,7 +148,7 @@ var Reloader = {};
 		});
 
 		ws.addEventListener('close', function(ev){
-			console.log("livebundle disconnected", ev);
+			console.log("livepkg disconnected", ev);
 			window.setTimeout(function(){ ListenChanges(livepath); }, ConnectionDelay);
 			ConnectionDelay *= 2;
 			if(ConnectionDelay > 5000){

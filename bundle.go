@@ -69,6 +69,9 @@ func (b *Bundle) Reload() ([]*Change, error) {
 	for len(unchecked) > 0 {
 		path := unchecked[len(unchecked)-1]
 		unchecked = unchecked[:len(unchecked)-1]
+		if checked[path] {
+			continue
+		}
 		checked[path] = true
 
 		info, ok := track[path]
@@ -103,6 +106,12 @@ func (b *Bundle) Reload() ([]*Change, error) {
 		if changed {
 			info.Next = next
 			info.Deps = !sameDeps(info.Prev.Deps, next.Deps)
+
+			for _, dep := range next.Deps {
+				if !checked[dep] {
+					unchecked = append(unchecked, dep)
+				}
+			}
 		} else {
 			info.Next = info.Prev
 		}
