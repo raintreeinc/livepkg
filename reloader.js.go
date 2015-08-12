@@ -1,17 +1,18 @@
 package livepkg
 
 const jsreloader = `
-package("reloader", function(exports){
+var Reloader = {};
+(function(Reloader){
 	"use strict";
 
-	exports.ReloadAfter = 2000;
+	Reloader.ReloadAfter = 2000;
 
 	var xhr = new XMLHttpRequest();
 	xhr.open("GET", document.currentScript.src + "on");
 
 	xhr.onload = function(){
 		if(xhr.status != 200){
-			window.setTimeout(window.location.reload, exports.ReloadAfter);
+			window.setTimeout(window.location.reload, Reloader.ReloadAfter);
 			return;
 		}
 
@@ -21,7 +22,7 @@ package("reloader", function(exports){
 	};
 
 	xhr.onerror = function(){
-		window.setTimeout(window.location.reload, exports.ReloadAfter);
+		window.setTimeout(window.location.reload, Reloader.ReloadAfter);
 		return;
 	}
 	xhr.send();
@@ -108,7 +109,7 @@ package("reloader", function(exports){
 	function onFileChanged(change){
 		return function(){
 			console.log("change", change);
-			exports.Change && exports.Change(change);
+			Reloader.Change && Reloader.Change(change);
 		};
 	}
 
@@ -155,5 +156,5 @@ package("reloader", function(exports){
 			}
 		});
 	}
-});
+})(Reloader);
 `

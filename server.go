@@ -3,48 +3,82 @@ package livepkg
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"path"
+	"sync"
 	"time"
 
 	"golang.org/x/net/websocket"
 )
 
 type Server struct {
-	Dir string // directory where to serve files
+	root   http.FileSystem
+	main   []string
+	dev    bool
+	socket http.Handler
 
-	dev     bool
-	sources *Sources
-	socket  http.Handler
+	once   sync.Once
+	bundle *Bundle
+
+	mu      sync.RWMutex
+	clients map[*websocket.Conn]struct{}
 }
 
-func NewServer(rootdir string, dev bool) *Server {
+func NewServer(root http.FileSystem, dev bool, main ...string) *Server {
 	server := &Server{
-		Dir: rootdir,
-
+		root:    root,
+		main:    main,
 		dev:     dev,
-		sources: NewSources(rootdir),
+		bundle:  NewBundle(root, main...),
+		clients: make(map[*websocket.Conn]struct{}),
 	}
 	server.socket = websocket.Handler(server.livechanges)
 	return server
 }
 
-func (server *Server) SetRoots(dirs ...string) {
-	server.sources.Include = dirs
+func (server *Server) init() {
+	server.bundle.Reload()
+	if server.dev {
+		go server.monitor()
+	}
+}
+
+func (server *Server) broadcast(change *Change) {
+	server.mu.RLock()
+	defer server.mu.RUnlock()
+	for ws := range server.clients {
+		websocket.JSON.Send(ws, change)
+	}
+}
+
+func (server *Server) monitor() {
+	for {
+		changes, err := server.bundle.Reload()
+		if err != nil {
+			log.Println(err)
+		}
+		if len(changes) > 0 {
+			for _, change := range changes {
+				server.broadcast(change)
+			}
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 }
 
 func (server *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	server.once.Do(server.init)
 	if server.dev {
-		server.live(w, r)
+		server.serveLive(w, r)
 	} else {
-		server.bundle(w, r)
+		server.serveBundle(w, r)
 	}
-
-	log.Println(r.URL.Path)
 }
 
-func (server *Server) live(w http.ResponseWriter, r *http.Request) {
+func (server *Server) serveLive(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "must-revalidate, no-cache")
 
 	switch path.Base(r.URL.Path) {
@@ -63,38 +97,25 @@ func (server *Server) live(w http.ResponseWriter, r *http.Request) {
 	case "~live":
 		server.socket.ServeHTTP(w, r)
 	default:
-		server.sources.ServeFile(w, r)
+		server.bundle.ServeFile(w, r)
 	}
 }
 
-func (server *Server) bundle(w http.ResponseWriter, r *http.Request) {
-	// TODO figure out good cache control header
-	// w.Header().Set("Cache-Control", "must-revalidate, no-cache")
-
+func (server *Server) serveBundle(w http.ResponseWriter, r *http.Request) {
 	switch path.Base(r.URL.Path) {
 	case "~pkg.js":
 		w.Header().Set("Content-Type", "application/javascript")
-		data, err := server.sources.BundleByExt(".js")
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
 		w.Write([]byte(jspackage))
-		w.Write(data)
+		w.Write(server.bundle.MergedByExt(".js"))
 	case "~pkg.css":
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
-		data, err := server.sources.BundleByExt(".css")
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Write(data)
+		w.Write(server.bundle.MergedByExt(".css"))
 	case "~info":
 		w.WriteHeader(http.StatusForbidden)
 	case "~live":
 		w.WriteHeader(http.StatusForbidden)
 	default:
-		server.sources.ServeFile(w, r)
+		http.FileServer(server.root).ServeHTTP(w, r)
 	}
 }
 
@@ -102,20 +123,13 @@ func (server *Server) info(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	var info struct {
-		Files []*File `json:"files"`
-		Live  string  `json:"live"`
+		Files []*Source `json:"files"`
+		Live  string    `json:"live"`
 	}
 
 	var err error
-	info.Files, err = server.sources.Files()
-	if err != nil {
-		log.Println("error getting files:", err)
-	}
+	info.Files = server.bundle.All()
 	info.Live = path.Join(path.Dir(r.URL.Path), "~live")
-
-	if info.Files == nil {
-		info.Files = []*File{}
-	}
 
 	data, err := json.MarshalIndent(info, "", "\t")
 	if err != nil {
@@ -134,22 +148,15 @@ func (server *Server) livechanges(ws *websocket.Conn) {
 	}
 	defer ws.Close()
 
-	files, _ := server.sources.Files()
-	for {
-		next, changes, err := server.sources.Changes(files)
-		if err != nil {
-			log.Println("error getting changes:", err)
-			return
-		}
+	server.mu.Lock()
+	server.clients[ws] = struct{}{}
+	server.mu.Unlock()
 
-		for _, change := range changes {
-			err := websocket.JSON.Send(ws, change)
-			if err != nil {
-				return
-			}
-		}
+	defer func() {
+		server.mu.Lock()
+		delete(server.clients, ws)
+		server.mu.Unlock()
+	}()
 
-		files = next
-		time.Sleep(500 * time.Millisecond)
-	}
+	io.Copy(ioutil.Discard, ws)
 }
