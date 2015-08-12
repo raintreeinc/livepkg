@@ -9,16 +9,12 @@ import (
 
 var (
 	addr = flag.String("listen", ":8000", "address to listen on")
+	dev  = flag.Bool("dev", true, "development mode")
+	root = flag.String("root", ".", "root directory")
 )
 
 func main() {
 	flag.Parse()
-
-	dir := ""
-	if flag.Arg(0) != "" {
-		dir = flag.Arg(0)
-	}
-
-	server := livepkg.NewServer(dir)
-	http.ListenAndServe(*addr, server)
+	pkg := livepkg.NewServer(http.Dir(*root), *dev, flag.Args()...)
+	http.ListenAndServe(*addr, pkg)
 }
