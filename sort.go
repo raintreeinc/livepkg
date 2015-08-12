@@ -1,8 +1,10 @@
 package livepkg
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"text/tabwriter"
 )
 
 type byType []*Source
@@ -69,20 +71,39 @@ func sortByDeps(initial []*Source) (order []*Source, err error) {
 		}
 	}
 
-	unsorted := []string{}
+	// there is a problem with some of the unsorted items
 	for _, src := range sources {
 		if sorted[src.Path] {
 			continue
 		}
-
-		unsorted = append(unsorted, src.Path)
 		order = append(order, src)
 	}
 
-	errtext := fmt.Sprintf("unable to sort some items: %s", unsorted)
+	help := formatUnsorted(sources, sorted)
+	errtext := fmt.Sprintf("cycle in dependencies:\n%s\n", help)
 	if len(missing) > 0 {
 		errtext += fmt.Sprintf("some sources are missing: %s", missing)
 	}
 
 	return order, errors.New(errtext)
+}
+
+func formatUnsorted(sources map[string]*Source, sorted map[string]bool) string {
+	var buf bytes.Buffer
+	tw := tabwriter.NewWriter(&buf, 0, 8, 0, '\t', 0)
+
+	for _, src := range sources {
+		if sorted[src.Path] {
+			continue
+		}
+
+		for _, dep := range src.Deps {
+			if !sorted[dep] {
+				fmt.Fprintf(tw, "    \t%s\t->\t%s\n", src.Path, dep)
+			}
+		}
+	}
+	tw.Flush()
+
+	return buf.String()
 }

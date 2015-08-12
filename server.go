@@ -40,7 +40,10 @@ func NewServer(root http.FileSystem, dev bool, main ...string) *Server {
 }
 
 func (server *Server) init() {
-	server.bundle.Reload()
+	_, err := server.bundle.Reload()
+	if err != nil {
+		log.Println(err)
+	}
 	if server.dev {
 		go server.monitor()
 	}
