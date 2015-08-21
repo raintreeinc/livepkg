@@ -14,6 +14,7 @@ import (
 
 var ErrUnknownImport = errors.New("unknown import format")
 
+// Source represents a single source file
 type Source struct {
 	Path string   `json:"path"` // absolute path for file
 	Deps []string `json:"deps"` // list of absolute paths
@@ -22,16 +23,17 @@ type Source struct {
 	ModTime     time.Time `json:"modified"`    // last modified time
 	ContentType string    `json:"contentType"` // file content-type
 
-	Content   []byte `json:"-"`
-	Processed []byte `json:"-"`
+	Content   []byte `json:"-"` // original content on disk
+	Processed []byte `json:"-"` // pre-processed content in some cases
 }
 
 var (
-	// quick-and-dirty import finder
+	// quick-and-dirty import finders for JS and CSS
 	rxJSImport  = regexp.MustCompile(`depends\(\s*["']([^"']+)["']\s*\);?`)
 	rxCSSImport = regexp.MustCompile(`@depends\s+"([^"']+)"\s*;`)
 )
 
+// ReadFrom reads content and deps from io.Reader
 func (source *Source) ReadFrom(r io.Reader) error {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -73,6 +75,7 @@ func (source *Source) ReadFrom(r io.Reader) error {
 	return nil
 }
 
+// Tag returns html tag that can be included in html
 func (src *Source) Tag() template.HTML {
 	//TODO: verify path sanitization
 	switch src.Ext {

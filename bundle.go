@@ -11,8 +11,10 @@ import (
 	"sync/atomic"
 )
 
+// Errors is a wrapper for multiple errors
 type Errors []error
 
+// Error is for implementing error interface
 func (errs Errors) Error() string {
 	var msgs []string
 	for _, err := range errs {
@@ -21,6 +23,7 @@ func (errs Errors) Error() string {
 	return strings.Join(msgs, "\n")
 }
 
+// Nilify returns nil, if there are no errors
 func (errs Errors) Nilify() error {
 	if len(errs) == 0 {
 		return nil
@@ -28,13 +31,18 @@ func (errs Errors) Nilify() error {
 	return errs
 }
 
+// Bundle is a collection of source files that can be bundled and/or reloaded
 type Bundle struct {
+	// Root is the filesystem used to load/reload sources
 	Root http.FileSystem
+	// Main is the root files that are used to find rest of the files
 	Main []string
 
+	// sources contains the list of reloaded files
 	sources atomic.Value
 }
 
+// NewBundle returns a empty bundle
 func NewBundle(root http.FileSystem, main ...string) *Bundle {
 	bundle := &Bundle{
 		Root: root,
@@ -44,15 +52,18 @@ func NewBundle(root http.FileSystem, main ...string) *Bundle {
 	return bundle
 }
 
+// Change shows info about a source file change
 type Change struct {
-	Prev *Source `json:"prev"` // nil if file was added
-	Next *Source `json:"next"` // nil if file was deleted
-	Deps bool    `json:"deps"` // true if dependencies changed
+	Prev *Source `json:"prev"` // Prev is nil if file was added
+	Next *Source `json:"next"` // Next is nil if file was deleted
+	Deps bool    `json:"deps"` // Deps is true if dependencies changed
 }
 
-func (b *Bundle) current() []*Source {
-	return b.sources.Load().([]*Source)
-}
+// current returns the state after the last reload
+func (b *Bundle) current() []*Source { return b.sources.Load().([]*Source) }
+
+// Reload reloads the content from Root and returns the list of changes and
+// all errors that occurred
 func (b *Bundle) Reload() ([]*Change, error) {
 	var errs Errors
 
@@ -142,11 +153,14 @@ func (b *Bundle) Reload() ([]*Change, error) {
 	return changes, errs.Nilify()
 }
 
+// Load loads a source from path
 func (b *Bundle) Load(path string) (*Source, error) {
 	_, next, err := b.ReloadSource(&Source{Path: path})
 	return next, err
 }
 
+// ReloadSource reloads the base file and returns a new Source file in next.
+// If file doesn't exist any more it will return nil as next
 func (b *Bundle) ReloadSource(base *Source) (changed bool, next *Source, err error) {
 	file, err := b.Root.Open(base.Path)
 	if err != nil {
@@ -179,6 +193,8 @@ func (b *Bundle) ReloadSource(base *Source) (changed bool, next *Source, err err
 	return !bytes.Equal(base.Content, next.Content), next, nil
 }
 
+// All returns the list of sorted sources
+// Do not modify this list!
 func (b *Bundle) All() []*Source {
 	cur := b.current()
 	if cur == nil {
@@ -187,6 +203,8 @@ func (b *Bundle) All() []*Source {
 	return cur
 }
 
+// All returns sorted sources with specified ext
+// Do not modify this list!
 func (b *Bundle) ByExt(ext string) []*Source {
 	byext := []*Source{}
 	for _, src := range b.current() {
@@ -197,6 +215,7 @@ func (b *Bundle) ByExt(ext string) []*Source {
 	return byext
 }
 
+// MergedByExt bundles files together into bytes by ext
 func (b *Bundle) MergedByExt(ext string) []byte {
 	var buf bytes.Buffer
 	for _, src := range b.ByExt(ext) {
@@ -208,6 +227,7 @@ func (b *Bundle) MergedByExt(ext string) []byte {
 	return buf.Bytes()
 }
 
+// fromCache loads path from cache if it exists, otherwise loads from Root
 func (b *Bundle) fromCache(path string) (*Source, error) {
 	for _, src := range b.current() {
 		if src.Path == path {
@@ -218,6 +238,7 @@ func (b *Bundle) fromCache(path string) (*Source, error) {
 	return b.Load(path)
 }
 
+// ServeFile serves file from cache or Root
 func (b *Bundle) ServeFile(w http.ResponseWriter, r *http.Request) {
 	upath := r.URL.Path
 	if !strings.HasPrefix(upath, "/") {
@@ -240,6 +261,7 @@ func (b *Bundle) ServeFile(w http.ResponseWriter, r *http.Request) {
 	w.Write(src.Processed)
 }
 
+// sameDeps returns true if the dependencies are the same
 func sameDeps(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

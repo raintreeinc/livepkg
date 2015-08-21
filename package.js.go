@@ -1,5 +1,6 @@
 package livepkg
 
+// jspackage is the default package manager
 const jspackage = `
 (function(global){
 	global.package = package;

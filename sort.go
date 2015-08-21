@@ -13,6 +13,8 @@ func (a byType) Len() int           { return len(a) }
 func (a byType) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a byType) Less(i, j int) bool { return a[i].Ext < a[j].Ext }
 
+// SortSources optimistically sorts items by dependencies
+// in case of cycles those items will be unordered
 func SortSources(sources []*Source) ([]*Source, error) {
 	order, err := sortByDeps(sources)
 	// sort.Sort(byType(order))

@@ -1,5 +1,6 @@
 package livepkg
 
+// jsreloader is the default file reloader
 const jsreloader = `
 var Reloader = {};
 (function(Reloader){

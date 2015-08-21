@@ -14,6 +14,7 @@ import (
 	"golang.org/x/net/websocket"
 )
 
+// Server implements a live reloading server for JS
 type Server struct {
 	root   http.FileSystem
 	main   []string
@@ -27,6 +28,7 @@ type Server struct {
 	clients map[*websocket.Conn]struct{}
 }
 
+// NewServer returns a new server
 func NewServer(root http.FileSystem, dev bool, main ...string) *Server {
 	server := &Server{
 		root:    root,
@@ -39,6 +41,7 @@ func NewServer(root http.FileSystem, dev bool, main ...string) *Server {
 	return server
 }
 
+// init initializes the bundle and starts monitoring disk for changes
 func (server *Server) init() {
 	_, err := server.bundle.Reload()
 	if err != nil {
@@ -49,6 +52,7 @@ func (server *Server) init() {
 	}
 }
 
+// broadcast sends a change to all connected clients
 func (server *Server) broadcast(change *Change) {
 	server.mu.RLock()
 	defer server.mu.RUnlock()
@@ -57,6 +61,7 @@ func (server *Server) broadcast(change *Change) {
 	}
 }
 
+// monitor monitors for changes on disk
 func (server *Server) monitor() {
 	for {
 		changes, err := server.bundle.Reload()
@@ -72,6 +77,7 @@ func (server *Server) monitor() {
 	}
 }
 
+// ServeHTTP implements http.Server
 func (server *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	server.once.Do(server.init)
 	if server.dev {
@@ -81,6 +87,7 @@ func (server *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// serveLive serves reloader and serves the web socket connection
 func (server *Server) serveLive(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "must-revalidate, no-cache")
 
@@ -104,6 +111,7 @@ func (server *Server) serveLive(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// serveBundle serves the bundled js and css files
 func (server *Server) serveBundle(w http.ResponseWriter, r *http.Request) {
 	switch path.Base(r.URL.Path) {
 	case "~pkg.js":
@@ -122,6 +130,7 @@ func (server *Server) serveBundle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// info serves information about all the files
 func (server *Server) info(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -143,6 +152,7 @@ func (server *Server) info(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
+// livechanges handles live reloader connection
 func (server *Server) livechanges(ws *websocket.Conn) {
 	// wake up client
 	err := websocket.Message.Send(ws, "")
