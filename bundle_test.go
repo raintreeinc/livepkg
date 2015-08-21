@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 )
@@ -74,8 +75,6 @@ func TestReloadChangeFile(t *testing.T) {
 	}
 
 	fs["/main.js"] = `CONTENT`
-
-	time.Sleep(1 * time.Microsecond)
 	changes, err := bundle.Reload()
 	if err != nil {
 		t.Errorf("err %v", err)
@@ -97,11 +96,11 @@ func TestReloadChangeFile(t *testing.T) {
 	fs["/main.js"] = `depends("/other.js")`
 	fs["/other.js"] = ``
 
-	time.Sleep(1 * time.Microsecond)
 	changes, err = bundle.Reload()
 	if err != nil {
 		t.Errorf("err %v", err)
 	}
+	sort.Sort(changesByPath(changes))
 
 	if len(changes) != 2 {
 		t.Errorf("invalid number of changes after deps change: %#v", changes)
@@ -109,7 +108,7 @@ func TestReloadChangeFile(t *testing.T) {
 	}
 
 	if !(changes[0].Deps == true) {
-		t.Errorf("should've detected file modification")
+		t.Errorf("should've detected file modification %v", changes)
 	}
 
 	if !(changes[1].Prev == nil && changes[1].Next != nil &&
@@ -119,7 +118,6 @@ func TestReloadChangeFile(t *testing.T) {
 
 	delete(fs, "/other.js")
 
-	time.Sleep(1 * time.Microsecond)
 	changes, _ = bundle.Reload()
 
 	if len(changes) != 1 {
@@ -131,7 +129,6 @@ func TestReloadChangeFile(t *testing.T) {
 	}
 
 	fs["/other.js"] = `blah`
-	time.Sleep(1 * time.Microsecond)
 	changes, _ = bundle.Reload()
 	if len(changes) != 1 {
 		t.Errorf("invalid number of changes after file re-add: %#v", changes)
@@ -140,6 +137,27 @@ func TestReloadChangeFile(t *testing.T) {
 	if !(changes[0].Next != nil) {
 		t.Errorf("should've detected file adding %#v", changes[0])
 	}
+}
+
+type changesByPath []*Change
+
+func (a changesByPath) Len() int      { return len(a) }
+func (a changesByPath) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a changesByPath) Less(i, j int) bool {
+	aname := ""
+	if a[i].Next != nil {
+		aname = a[i].Next.Path
+	} else if a[i].Prev != nil {
+		aname = a[i].Prev.Path
+	}
+
+	bname := ""
+	if a[j].Next != nil {
+		bname = a[j].Next.Path
+	} else if a[j].Prev != nil {
+		bname = a[j].Prev.Path
+	}
+	return aname < bname
 }
 
 func names(sources []*Source) []string {
@@ -164,9 +182,12 @@ func sameFiles(sources []*Source, expected []string) bool {
 
 type filesystem map[string]string
 
+var pseudoTime, _ = time.Parse(time.RFC1123, time.RFC1123)
+
 func (fs filesystem) Open(name string) (http.File, error) {
+	pseudoTime = pseudoTime.Add(time.Second)
 	if data, ok := fs[name]; ok {
-		return &file{name, time.Now(), bytes.NewReader([]byte(data))}, nil
+		return &file{name, pseudoTime, bytes.NewReader([]byte(data))}, nil
 	}
 	return nil, os.ErrNotExist
 }

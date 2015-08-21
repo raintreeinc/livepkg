@@ -180,16 +180,17 @@ func (b *Bundle) ReloadSource(prev *Source) (changed bool, next *Source, err err
 	stat, staterr := file.Stat()
 	if staterr == nil {
 		next.ModTime = stat.ModTime()
-
 		if next.ModTime.Equal(prev.ModTime) {
 			next.Content = prev.Content
 			next.Processed = prev.Processed
+
 			return false, next, nil
 		}
 	} else {
 		next.ModTime = time.Now()
 	}
 	if err = next.ReadFrom(file); err != nil {
+
 		return true, next, err
 	}
 
