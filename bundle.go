@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"time"
 )
 
 // Errors is a wrapper for multiple errors
@@ -114,15 +115,15 @@ func (b *Bundle) Reload() ([]*Change, error) {
 			errs = append(errs, err)
 		}
 
+		for _, dep := range next.Deps {
+			if !checked[dep] {
+				unchecked = append(unchecked, dep)
+			}
+		}
+
 		if changed {
 			info.Next = next
 			info.Deps = !sameDeps(info.Prev.Deps, next.Deps)
-
-			for _, dep := range next.Deps {
-				if !checked[dep] {
-					unchecked = append(unchecked, dep)
-				}
-			}
 		} else {
 			info.Next = info.Prev
 		}
@@ -161,16 +162,16 @@ func (b *Bundle) Load(path string) (*Source, error) {
 
 // ReloadSource reloads the base file and returns a new Source file in next.
 // If file doesn't exist any more it will return nil as next
-func (b *Bundle) ReloadSource(base *Source) (changed bool, next *Source, err error) {
-	file, err := b.Root.Open(base.Path)
+func (b *Bundle) ReloadSource(prev *Source) (changed bool, next *Source, err error) {
+	file, err := b.Root.Open(prev.Path)
 	if err != nil {
 		return true, nil, err
 	}
 	defer file.Close()
 
-	ext := filepath.Ext(base.Path)
+	ext := filepath.Ext(prev.Path)
 	next = &Source{
-		Path: base.Path,
+		Path: prev.Path,
 		Ext:  ext,
 
 		ContentType: mime.TypeByExtension(ext),
@@ -179,18 +180,20 @@ func (b *Bundle) ReloadSource(base *Source) (changed bool, next *Source, err err
 	stat, staterr := file.Stat()
 	if staterr == nil {
 		next.ModTime = stat.ModTime()
-		if !base.ModTime.Before(stat.ModTime()) {
-			next.Content = base.Content
-			next.Processed = base.Processed
+
+		if next.ModTime.Equal(prev.ModTime) {
+			next.Content = prev.Content
+			next.Processed = prev.Processed
 			return false, next, nil
 		}
+	} else {
+		next.ModTime = time.Now()
 	}
-
 	if err = next.ReadFrom(file); err != nil {
 		return true, next, err
 	}
 
-	return !bytes.Equal(base.Content, next.Content), next, nil
+	return !bytes.Equal(prev.Content, next.Content), next, nil
 }
 
 // All returns the list of sorted sources

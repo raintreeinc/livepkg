@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"mime"
+	"net/url"
 	"path"
 	"regexp"
 	"strings"
@@ -29,8 +30,8 @@ type Source struct {
 
 var (
 	// quick-and-dirty import finders for JS and CSS
-	rxJSImport  = regexp.MustCompile(`depends\(\s*["']([^"']+)["']\s*\);?`)
-	rxCSSImport = regexp.MustCompile(`@depends\s+"([^"']+)"\s*;`)
+	rxJSImport  = regexp.MustCompile(`depends\([\t\s]*["']([^"']+)["'][\t\s]*\)[\t\s]*;?`)
+	rxCSSImport = regexp.MustCompile(`@depends[\t\s]+"([^"']+)"[\t\s]*;`)
 )
 
 // ReadFrom reads content and deps from io.Reader
@@ -77,14 +78,18 @@ func (source *Source) ReadFrom(r io.Reader) error {
 
 // Tag returns html tag that can be included in html
 func (src *Source) Tag() template.HTML {
-	//TODO: verify path sanitization
+	u, err := url.Parse(src.Path)
+	if err != nil {
+		return ""
+	}
+	path := u.EscapedPath()
 	switch src.Ext {
 	case ".js":
-		return template.HTML(`<script src="` + src.Path + `" type="text/javascript" >`)
+		return template.HTML(`<script src="` + path + `" type="text/javascript" >`)
 	case ".css":
-		return template.HTML(`<link href="` + src.Path + `" rel="stylesheet">`)
+		return template.HTML(`<link href="` + path + `" rel="stylesheet">`)
 	case ".html":
-		return template.HTML(`<link href="` + src.Path + `" rel="import">`)
+		return template.HTML(`<link href="` + path + `" rel="import">`)
 	}
 	mtype := mime.TypeByExtension(src.Ext)
 	return template.HTML(`<link href="` + src.Path + `" type="` + string(mtype) + `">`)
