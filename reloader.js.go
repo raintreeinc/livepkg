@@ -9,7 +9,8 @@ var Reloader = {};
 	Reloader.ReloadAfter = 2000;
 
 	var xhr = new XMLHttpRequest();
-	xhr.open("GET", document.currentScript.src + "on");
+	var src = document.currentScript.src;
+	xhr.open("GET", src.replace(".js", ".json"));
 
 	xhr.onload = function(){
 		if(xhr.status != 200){
