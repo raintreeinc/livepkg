@@ -9,8 +9,8 @@ var Reloader = {};
 	Reloader.ReloadAfter = 2000;
 
 	var xhr = new XMLHttpRequest();
-	var src = document.currentScript.src;
-	xhr.open("GET", src.replace(".js", ".json"));
+	var src = PkgJSON || document.currentScript.src.replace(".js", ".json");
+	xhr.open("GET", src);
 
 	xhr.onload = function(){
 		if(xhr.status != 200){

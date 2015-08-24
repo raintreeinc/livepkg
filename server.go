@@ -96,6 +96,8 @@ func (server *Server) serveLive(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript")
 
 		w.Write([]byte(jspackage))
+		pkgjson := path.Join(path.Dir(r.URL.Path), "~pkg.json")
+		w.Write([]byte(`var PkgJSON = "` + pkgjson + `";`))
 		w.Write([]byte(jsreloader))
 	case "~pkg.json":
 		server.info(w, r)
