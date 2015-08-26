@@ -19,8 +19,10 @@ var Reloader = {};
 		}
 
 		var result = JSON.parse(xhr.responseText);
-		ListenChanges(result.live);
 		LoadFiles(result.files);
+		if(typeof WebSocket !== 'undefined'){
+			ListenChanges(result.live);
+		}
 	};
 
 	xhr.onerror = function(){
