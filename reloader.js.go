@@ -9,10 +9,12 @@ var Reloader = {};
 	Reloader.ReloadAfter = 2000;
 
 	var xhr = new XMLHttpRequest();
-	var src = PkgJSON || document.currentScript.src.replace(".js", ".json");
+	var src = (PkgJSON || document.currentScript.src.replace(".js", ".json"));
 	xhr.open("GET", src);
 
-	xhr.onload = function(){
+	xhr.onreadystatechange = function(){
+		if(xhr.readyState !== 4){ return; }
+
 		if(xhr.status != 200){
 			window.setTimeout(window.location.reload, Reloader.ReloadAfter);
 			return;
@@ -20,46 +22,74 @@ var Reloader = {};
 
 		var result = JSON.parse(xhr.responseText);
 		LoadFiles(result.files);
+
 		if(typeof WebSocket !== 'undefined'){
 			ListenChanges(result.live);
 		}
 	};
 
-	xhr.onerror = function(){
-		window.setTimeout(window.location.reload, Reloader.ReloadAfter);
-		return;
-	}
 	xhr.send();
 
 
 	var loading = {};
 	var unloaded = [];
+
+	Reloader.loading = loading;
+	Reloader.unloaded = unloaded;
+
 	function LoadFiles(files){
 		unloaded = files;
 		flush();
 
 		// tries to load as many unblocked files as possible
 		function flush(){
+			// clear loaded
+			for(var name in loading){
+				var asset = document.getElementById("~" + name);
+				if(typeof asset === 'undefined'){ continue; }
+				if((asset.readyState === 'complete') ||
+					(asset.readyState === 'loaded')){
+					delete loading[name];
+				}
+			}
+
+			// try load something new
 			while(unloaded.length > 0){
 				if(!tryLoad(unloaded[0])){
 					return;
 				};
 				unloaded.shift();
 			}
+
+			// done?
 			if(Object.keys(loading).length == 0){
 				console.log("reloader", "+++");
 			}
 		}
+
+		var loadMonitor = window.setInterval(function(){
+			flush();
+			if(Object.keys(loading).length == 0){
+				window.clearInterval(loadMonitor);
+			}
+		}, 100);
 
 		// tries to load a file, returns true if it started loading
 		function tryLoad(file){
 			for(var i = 0; i < file.deps.length; i += 1){
 				if(loading[file.deps[i]]){ return false; }
 			}
+
 			console.log("reloader", "+ " + file.path);
 			loading[file.path] = true;
 			var asset = injectFile(file);
+			asset.onreadystatechange = flush;
+
 			asset.onload = function(){
+				delete loading[file.path];
+				flush();
+			};
+			asset.onerror = function(){
 				delete loading[file.path];
 				flush();
 			};
@@ -87,7 +117,7 @@ var Reloader = {};
 
 	function injectFile(file){
 		var asset = makeDOMElement(file);
-		document.head.appendChild(asset);
+		document.getElementsByTagName('head')[0].appendChild(asset);
 		return asset;
 	}
 
@@ -112,7 +142,7 @@ var Reloader = {};
 
 	function onFileChanged(change){
 		return function(){
-			console.log("change", change);
+			console.log("reloader", "%", change);
 			Reloader.Change && Reloader.Change(change);
 		};
 	}
