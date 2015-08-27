@@ -41,6 +41,8 @@ var Reloader = {};
 		unloaded = files;
 		flush();
 
+		var loadMonitor = window.setInterval(flush, 100);
+
 		// tries to load as many unblocked files as possible
 		function flush(){
 			// clear loaded
@@ -64,15 +66,9 @@ var Reloader = {};
 			// done?
 			if(Object.keys(loading).length == 0){
 				console.log("reloader", "+++");
-			}
-		}
-
-		var loadMonitor = window.setInterval(function(){
-			flush();
-			if(Object.keys(loading).length == 0){
 				window.clearInterval(loadMonitor);
 			}
-		}, 100);
+		}
 
 		// tries to load a file, returns true if it started loading
 		function tryLoad(file){
