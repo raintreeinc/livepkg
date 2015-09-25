@@ -139,6 +139,7 @@ var Reloader = {};
 	function onFileChanged(change){
 		return function(){
 			console.log("reloader", "%", change);
+			Reloader.Change && Reloader.Change(change);
 			Reloader.onchange && Reloader.onchange(change);
 		};
 	}
