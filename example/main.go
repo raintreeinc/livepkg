@@ -22,9 +22,9 @@ func main() {
 		*addr = os.Getenv("HOST") + ":" + os.Getenv("PORT")
 	}
 
-	dir := http.Dir(".")
-	pkg := livepkg.NewServer(dir, *dev, "/ui/main.js", "/ui/main.css")
-	http.Handle("/ui/", pkg)
+	dir := http.Dir("ui")
+	pkg := livepkg.NewServer(dir, *dev, "/main.js", "/main.css")
+	http.Handle("/ui/", http.StripPrefix("/ui", pkg))
 	http.HandleFunc("/", index)
 
 	assets := http.Dir("assets")

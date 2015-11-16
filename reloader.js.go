@@ -1,5 +1,7 @@
 package livepkg
 
+const rootPathMarker = "{{.Root}}"
+
 // jsreloader is the default file reloader
 const jsreloader = `
 var Reloader = {};
@@ -9,8 +11,25 @@ var Reloader = {};
 	Reloader.ReloadAfter = 2000;
 
 	var xhr = new XMLHttpRequest();
-	var src = (PkgJSON || document.currentScript.src.replace(".js", ".json"));
-	xhr.open("GET", src);
+
+	function abs(file){
+		var root = "{{.Root}}";
+
+		if(root == ""){
+			return file;
+		}
+		var rootslash = root[root.length-1] == "/",
+			fileslash = file[0] == "/";
+
+		if(rootslash && fileslash){
+			return root + file.substring(1);
+		} else if (rootslash != fileslash){
+			return root + file;
+		} else {
+			return root + "/" + file;
+		}
+	}
+	xhr.open("GET", abs("~pkg.json"));
 
 	xhr.onreadystatechange = function(){
 		if(xhr.readyState !== 4){ return; }
@@ -24,7 +43,7 @@ var Reloader = {};
 		LoadFiles(result.files);
 
 		if(typeof WebSocket !== 'undefined'){
-			ListenChanges(result.live);
+			ListenChanges(abs("~live"));
 		}
 	};
 
@@ -97,11 +116,11 @@ var Reloader = {};
 		switch(file.ext){
 		case ".js":
 			var asset = document.createElement("script");
-			asset.src = file.path + "?" + Math.random();
+			asset.src = abs(file.path) + "?" + Math.random();
 			break;
 		case ".css":
 			var asset = document.createElement("link");
-			asset.href = file.path + "?" + Math.random();
+			asset.href = abs(file.path) + "?" + Math.random();
 			asset.rel = "stylesheet";
 			break;
 		default:

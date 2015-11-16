@@ -1,10 +1,10 @@
-package("ui", function(ui){
-	depends("/ui/wanderer.js");
+package("ui", function(ui) {
+	depends("/wanderer.js");
 
-	var view =  document.getElementById("view");
+	var view = document.getElementById("view");
 	var context = view.getContext("2d");
 
-	function render(){
+	function render() {
 		context.clearRect(0, 0, view.width, view.height);
 		ui.wanderer.renderTo(context);
 		ui.loop = requestAnimationFrame(render);

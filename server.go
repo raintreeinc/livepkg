@@ -3,11 +3,14 @@ package livepkg
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -96,9 +99,14 @@ func (server *Server) serveLive(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript")
 
 		w.Write([]byte(jspackage))
-		pkgjson := path.Join(path.Dir(r.URL.Path), "~pkg.json")
-		w.Write([]byte(`var PkgJSON = "` + pkgjson + `";`))
-		w.Write([]byte(jsreloader))
+
+		origurl, err := url.ParseRequestURI(r.RequestURI)
+		origpath := r.RequestURI
+		if err != nil && origurl != nil {
+			origpath = origurl.Path
+		}
+		rootpath := template.JSEscapeString(path.Dir(origpath))
+		w.Write([]byte(strings.Replace(jsreloader, rootPathMarker, rootpath, -1)))
 	case "~pkg.json":
 		server.info(w, r)
 	case "~pkg.css":
@@ -138,12 +146,10 @@ func (server *Server) info(w http.ResponseWriter, r *http.Request) {
 
 	var info struct {
 		Files []*Source `json:"files"`
-		Live  string    `json:"live"`
 	}
 
 	var err error
 	info.Files = server.bundle.All()
-	info.Live = path.Join(path.Dir(r.URL.Path), "~live")
 
 	data, err := json.MarshalIndent(info, "", "\t")
 	if err != nil {
