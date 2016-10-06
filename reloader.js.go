@@ -112,15 +112,41 @@ var Reloader = {};
 		}
 	}
 
+	function layout(date){
+		var sub = "₀₁₂₃₄₅₆₇₈₉";
+		var pad = function(x, n){
+			n = n || 2;
+
+			var s = "" + x;
+			var r = "";
+			for(var i = 0; i < s.length; i++){
+				r += sub[s[i]]
+			}
+			s = r;
+
+			while(s.length < n){
+				s = "₀" + s;
+			}
+			return s;
+		};
+
+		return pad(date.getHours()) +
+			"." + pad(date.getMinutes()) +
+			"." + pad(date.getSeconds()) +
+			"." + pad(date.getMilliseconds(), 3);
+		;
+	}
+
 	function makeDOMElement(file){
+		var stamp = layout(new Date());
 		switch(file.ext){
 		case ".js":
 			var asset = document.createElement("script");
-			asset.src = abs(file.path) + "?" + Math.random();
+			asset.src = abs(file.path) + "?" + stamp;
 			break;
 		case ".css":
 			var asset = document.createElement("link");
-			asset.href = abs(file.path) + "?" + Math.random();
+			asset.href = abs(file.path) + "?" + stamp;
 			asset.rel = "stylesheet";
 			break;
 		default:
