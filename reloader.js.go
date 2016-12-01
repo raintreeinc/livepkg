@@ -113,19 +113,12 @@ var Reloader = {};
 	}
 
 	function layout(date){
-		var sub = "₀₁₂₃₄₅₆₇₈₉";
 		var pad = function(x, n){
 			n = n || 2;
 
 			var s = "" + x;
-			var r = "";
-			for(var i = 0; i < s.length; i++){
-				r += sub[s[i]]
-			}
-			s = r;
-
 			while(s.length < n){
-				s = "₀" + s;
+				s = "0" + s;
 			}
 			return s;
 		};
