@@ -93,15 +93,34 @@ var Reloader = {};
 		}
 	}
 
+	function layout(date){
+		var pad = function(x, n){
+			n = n || 2;
+
+			var s = "" + x;
+			while(s.length < n){
+				s = "0" + s;
+			}
+			return s;
+		};
+
+		return pad(date.getHours()) +
+			"." + pad(date.getMinutes()) +
+			"." + pad(date.getSeconds()) +
+			"." + pad(date.getMilliseconds(), 3);
+		;
+	}
+
 	function makeDOMElement(file){
+		var stamp = layout(new Date());
 		switch(file.ext){
 		case ".js":
 			var asset = document.createElement("script");
-			asset.src = file.path + "?" + Math.random();
+			asset.src = file.path + "?" + stamp;
 			break;
 		case ".css":
 			var asset = document.createElement("link");
-			asset.href = file.path + "?" + Math.random();
+			asset.href = file.path + "?" + stamp;
 			asset.rel = "stylesheet";
 			break;
 		default:
