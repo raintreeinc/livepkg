@@ -112,6 +112,7 @@ var Reloader = {};
 	}
 
 	function makeDOMElement(file){
+		// timestamp as a string to be visible in browser dev tools when hovering over file name (server should ignore this parameter)
 		var stamp = layout(new Date());
 		switch(file.ext){
 		case ".js":
