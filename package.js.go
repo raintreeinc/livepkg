@@ -1,16 +1,16 @@
 package livepkg
 
-// jspackage is the default package manager
+// jspackage is the default packages manager
 const jspackage = `
 (function(global){
-	global.package = package;
-	function package(name, setup){
+	global.packages = packages;
+	function packages(name, setup){
 		if(name == ""){
-			throw new Error("package name cannot be empty");
+			throw new Error("packages name cannot be empty");
 		}
 
-		var info = package.find(name);
-		if(package.debug){
+		var info = packages.find(name);
+		if(packages.debug){
 			if(info.created){
 				console.log("loading: ", name);
 			} else {
@@ -27,9 +27,9 @@ const jspackage = `
 		}
 	}
 
-	package.debug = false;
+	packages.debug = false;
 
-	package.find = function find(name){
+	packages.find = function find(name){
 		var created = false;
 		var path = name.split(".");
 		var namespace = global;

@@ -41,7 +41,7 @@ var Reloader = {};
 		unloaded = files;
 		flush();
 
-		var loadMonitor = window.setInterval(flush, 100);
+		//var loadMonitor = window.setInterval(flush, 100);
 
 		// tries to load as many unblocked files as possible
 		function flush(){
@@ -57,20 +57,26 @@ var Reloader = {};
 
 			// try load something new
 			while(unloaded.length > 0){
-				if(!tryLoad(unloaded[0])){
-					return;
-				};
+				//if(!tryLoad(unloaded[0])){
+				//	return;
+				//};
+				injectFile(unloaded[0], true);
 				unloaded.shift();
 			}
 
 			// done?
 			if(Object.keys(loading).length == 0){
 				console.log("reloader", "+++");
-				window.clearInterval(loadMonitor);
+				//window.clearInterval(loadMonitor);
+				window.document.dispatchEvent(new Event("DOMContentLoaded", {
+				  bubbles: true,
+				  cancelable: true
+				}));
 			}
 		}
 
 		// tries to load a file, returns true if it started loading
+		// not used with babel
 		function tryLoad(file){
 			for(var i = 0; i < file.deps.length; i += 1){
 				if(loading[file.deps[i]]){ return false; }
@@ -117,6 +123,7 @@ var Reloader = {};
 		switch(file.ext){
 		case ".js":
 			var asset = document.createElement("script");
+			asset.setAttribute("type", "text/babel");
 			asset.src = file.path + "?" + stamp;
 			break;
 		case ".css":
@@ -186,6 +193,10 @@ var Reloader = {};
 			} else {
 				var asset = swapFile(change.prev, change.next);
 				asset.onload = onFileChanged(change);
+				window.document.dispatchEvent(new Event("DOMContentLoaded", {
+				  bubbles: true,
+				  cancelable: true
+				}));
 			}
 		});
 
